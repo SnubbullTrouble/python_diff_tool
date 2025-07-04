@@ -10,6 +10,7 @@ from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 from codeeditor import CodeEditor
 from trackinglineedit import TrackingLineEdit
+from file import File
 
 class DualViewer(QMainWindow):
     def __init__(self):
@@ -75,7 +76,9 @@ class DualViewer(QMainWindow):
         self.setCentralWidget(container)
         self.resize(1000, 600)
 
-        #self.loadFiles()
+        # Save-state for editors
+        self.editor1_cache = File()
+        self.editor2_cache = File()
 
     # Boilerplate for textbox and button signals
 
@@ -120,16 +123,61 @@ class DualViewer(QMainWindow):
 
             self.loadFile(filename, sender)
 
+    def saveFile(self, filename:str, contents:list[str]):
+        try:
+            with open(filename, 'w', encoding='utf-8') as file:
+                file.writelines(contents)
+        except Exception as e:
+            QMessageBox.critical(self, "Save File Error", f"Could not save file:\n{e}")
 
     def loadFile(self, filename: str, sender: TrackingLineEdit | QPushButton):
+        # UX logic
+        if sender == self.textbox1 or sender == self.button1:
+            side = 'Left'
+            cache = self.editor1_cache
+            body = self.editor1.toPlainText().splitlines(keepends=True)
+        else:
+            side = 'Right'
+            cache = self.editor2_cache
+            body = self.editor2.toPlainText().splitlines(keepends=True)
+
+        # If the old file changed, prompt to save
+        if body != cache.body:
+            reply = QMessageBox.question(
+                self,
+                'Save Changes?',
+                '{} File Contents Changed. Save Changes?'.format(side),
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+
+            # Handle the response
+            if reply == QMessageBox.Yes:
+                self.saveFile(cache.filename, body)
+            elif reply == QMessageBox.NoButton:
+                return
+            
+        # Open the file
         try:
             with open(filename, 'r') as file:
                 lines = file.readlines()
         except Exception as e:
             lines = [str(e)]
 
-        self.fillEditor(lines, self.editor1 if sender == self.textbox1 or sender == self.button1 else self.editor2)
+        # Dump lines to editors and Cache file details
+        if sender == self.textbox1 or sender == self.button1:
+            self.fillEditor(lines, self.editor1)
+            self.editor1_cache = File(filename, lines)
+        else:
+            self.fillEditor(lines, self.editor2)
+            self.editor2_cache = File(filename, lines)            
 
+        # Diff it
+        try:
+            self.diff_files(self.editor1.toPlainText().splitlines(keepends=True), self.editor2.toPlainText().splitlines(keepends=True))
+        except Exception as e:
+            QMessageBox.critical(self, "File Diff Error", str(e))
+    
     def fillEditor(self, contents, editor):
         editor.setPlainText("".join(contents))
 
