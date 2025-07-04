@@ -1,9 +1,10 @@
-from PyQt5.QtWidgets import QLineEdit
-from PyQt5.QtCore import pyqtSignal
+from PySide6.QtWidgets import QLineEdit
+from PySide6.QtCore import Signal
 
 class TrackingLineEdit(QLineEdit):
-    focusEntered = pyqtSignal()
-    focusExited = pyqtSignal(bool)  # Emits True if text changed, False if same
+    focusEntered = Signal()
+    focusExited = Signal()
+    reloadEditor = Signal(QLineEdit)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -15,6 +16,7 @@ class TrackingLineEdit(QLineEdit):
         super().focusInEvent(event)
 
     def focusOutEvent(self, event):
-        text_changed = self.text() != self._original_text
-        self.focusExited.emit(text_changed)
+        if self.text() != self._original_text:
+            self.reloadEditor.emit(self)
+        self.focusExited.emit()
         super().focusOutEvent(event)
