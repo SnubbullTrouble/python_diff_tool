@@ -4,17 +4,19 @@ from PySide6.QtWidgets import (
     QSplitter,
     QSpacerItem,
     QFileDialog,
-    QSizePolicy, QVBoxLayout, QLineEdit, QPushButton, QHBoxLayout, QMessageBox
+    QSizePolicy, QVBoxLayout, QLineEdit, QPushButton, QHBoxLayout, QMessageBox, QApplication
 )
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 from codeeditor import CodeEditor
 from trackinglineedit import TrackingLineEdit
 from file import File
+from session import Session
 
 class DualViewer(QMainWindow):
     def __init__(self):
         super().__init__()
+        app = QApplication.instance()
         self.setWindowTitle("Side-by-Side File Diff Viewer")
 
         # Create components
@@ -76,11 +78,29 @@ class DualViewer(QMainWindow):
         self.setCentralWidget(container)
         self.resize(1000, 600)
 
+        # Quit Capture
+        app.aboutToQuit.connect(self.exit)
+
         # Save-state for editors
         self.editor1_cache = File()
         self.editor2_cache = File()
 
-    # Boilerplate for textbox and button signals
+        # Session Data
+        self.session = Session()
+        self.session.load_session_data()
+
+        if self.session.session_data.last_left_file:
+            self.textbox1.setText(self.session.session_data.last_left_file)
+            self.loadFile(self.session.session_data.last_left_file, self.textbox1)
+        if self.session.session_data.last_right_file:
+            self.textbox2.setText(self.session.session_data.last_right_file)
+            self.loadFile(self.session.session_data.last_right_file, self.textbox2)
+       
+    def exit(self):
+        self.session.session_data.app_name = self.windowTitle()
+        self.session.session_data.last_left_file = self.textbox1.text()
+        self.session.session_data.last_right_file = self.textbox2.text()
+        self.session.save_session_data()
 
     def textBoxEnterKey(self):
         sender = self.sender()
